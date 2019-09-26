@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29318.209
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AllwinnerGpioDriver", "AllwinnerGpioDriver\AllwinnerGpioDriver.csproj", "{F852E253-EA1F-42AD-900A-9436430A440D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AllwinnerGpioDriver.Samples", "AllwinnerGpioDriver.Samples\AllwinnerGpioDriver.Samples.csproj", "{6770B42C-DDF7-4513-8DC9-0368E439E83F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F852E253-EA1F-42AD-900A-9436430A440D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F852E253-EA1F-42AD-900A-9436430A440D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F852E253-EA1F-42AD-900A-9436430A440D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F852E253-EA1F-42AD-900A-9436430A440D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6770B42C-DDF7-4513-8DC9-0368E439E83F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6770B42C-DDF7-4513-8DC9-0368E439E83F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6770B42C-DDF7-4513-8DC9-0368E439E83F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6770B42C-DDF7-4513-8DC9-0368E439E83F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {08F34211-0B3D-4C54-93E7-492B984D6428}
+	EndGlobalSection
+EndGlobal
