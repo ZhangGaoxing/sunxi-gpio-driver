@@ -1,1 +1,1 @@
-# allwinner-gpio-driver
+# sunxi-gpio-driver

@@ -4,7 +4,7 @@ using System.Text;
 
 namespace System.Device.Gpio.Drivers
 {
-    public partial class AllwinnerDriver
+    public partial class SunxiDriver
     {
         protected internal override int PinCount => 28;
 

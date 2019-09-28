@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace System.Device.Gpio.Drivers
 {
-    public unsafe partial class AllwinnerDriver : GpioDriver
+    public unsafe partial class SunxiDriver : GpioDriver
     {
         private IntPtr gpioPointer0;
         private IntPtr gpioPointer1;

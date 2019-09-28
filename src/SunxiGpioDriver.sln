@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29318.209
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AllwinnerGpioDriver", "AllwinnerGpioDriver\AllwinnerGpioDriver.csproj", "{F852E253-EA1F-42AD-900A-9436430A440D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SunxiGpioDriver", "SunxiGpioDriver\SunxiGpioDriver.csproj", "{F852E253-EA1F-42AD-900A-9436430A440D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AllwinnerGpioDriver.Samples", "AllwinnerGpioDriver.Samples\AllwinnerGpioDriver.Samples.csproj", "{6770B42C-DDF7-4513-8DC9-0368E439E83F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SunxiGpioDriver.Samples", "SunxiGpioDriver.Samples\SunxiGpioDriver.Samples.csproj", "{6770B42C-DDF7-4513-8DC9-0368E439E83F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
