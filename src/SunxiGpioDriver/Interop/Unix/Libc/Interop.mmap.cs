@@ -28,7 +28,7 @@ internal enum MemoryMappedFlags
     MAP_FIXED = 0x10
 }
 
-internal enum AllwinnerRegister
+internal enum SunxiRegister
 {
     /// <summary>
     /// Port A Configure Register 0(PA0 - PA7, 32bit). Default Value 0x77777777.
@@ -140,6 +140,17 @@ internal enum AllwinnerRegister
     /// Port L PULL Register 0(PL0 - PL11, 32bit). Default Value 0x00000000.
     /// </summary>
     PL_PULL0_REG = 0x1C,
+}
+
+internal enum SunxiPortController
+{
+    PortA,
+    PortC,
+    PortD,
+    PortE,
+    PortF,
+    PortG,
+    PortL,
 }
 
 /// <summary>

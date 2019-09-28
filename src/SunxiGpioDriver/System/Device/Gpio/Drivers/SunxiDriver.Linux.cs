@@ -11,7 +11,7 @@ namespace System.Device.Gpio.Drivers
 {
     public unsafe partial class SunxiDriver : GpioDriver
     {
-        private IntPtr gpioPointer0;
+        private volatile IntPtr gpioPointer0;
         private IntPtr gpioPointer1;
         private const int GpioRegisterOffset0 = 0x01C20800;
         private const int GpioRegisterOffset1 = 0x01F02C00;
@@ -173,22 +173,48 @@ namespace System.Device.Gpio.Drivers
                 throw new InvalidOperationException($"The pin {pinNumber} does not support the selected mode {mode}.");
             }
 
-            /*
-             * There are 6 registers(4-byte ints) that control the mode for all pins. Each
-             * register controls the mode for 10 pins. Each pin uses 3 bits in the register
-             * containing the mode.
-             */
+            // Get port controller, port number and shift
+            var unmapped = UnmapPinNumber(pinNumber);
+            int cfgNum = unmapped.port / 8;
+            int cfgShift = unmapped.port % 8;
+            int pulNum = unmapped.port / 16;
+            int pulShift = unmapped.port % 16;
 
-            // Define the shift to get the right 3 bits in the register
-            int shift = (pinNumber % 10) * 3;
-            // Gets a pointer to the register that holds the mode for the pin
-            uint* registerPointer = &gpioPointer0->GPFSEL[pinNumber / 10];
-            uint register = *registerPointer;
-            // Clear the 3 bits to 0 for the pin Number.
-            register &= ~(0b111U << shift);
-            // Set the 3 bits to the desired mode for that pin.
-            register |= (mode == PinMode.Output ? 1u : 0u) << shift;
-            *registerPointer = register;
+            // Get register address
+            int cfgAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + cfgNum * 0x04;
+            int pulAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04;
+
+            // Get register pointer
+            uint* cfgPointer = (uint*)(gpioPointer0 + cfgAddress);
+            uint cfgValue = *cfgPointer;
+            uint* pulPointer = (uint*)(gpioPointer0 + pulAddress);
+            uint pulValue = *pulPointer;
+
+            // Clear register
+            cfgValue &= ~(0xFU << (cfgShift * 4));
+            pulValue &= ~(0b_11U << (pulShift * 2));
+
+            switch (mode)
+            {
+                case PinMode.Output:
+                    cfgValue |= (0b_001U << (cfgShift * 4));
+                    break;
+                case PinMode.Input:
+                    // After clearing the register, the value is the input mode.
+                    break;
+                case PinMode.InputPullDown:
+                    pulValue|= (0b_10U << (pulShift * 2));
+                    break;
+                case PinMode.InputPullUp:
+                    pulValue |= (0b_01U << (pulShift * 2));
+                    break;
+                default:
+                    throw new ArgumentException();
+            }
+
+            *cfgPointer = cfgValue;
+            Thread.SpinWait(150);
+            *pulPointer = pulValue;
 
             if (_sysFSModes.ContainsKey(pinNumber))
             {
@@ -197,11 +223,6 @@ namespace System.Device.Gpio.Drivers
             else
             {
                 _sysFSModes.Add(pinNumber, mode);
-            }
-
-            if (mode != PinMode.Output)
-            {
-                SetInputPullMode(pinNumber, mode);
             }
         }
 
@@ -383,6 +404,61 @@ namespace System.Device.Gpio.Drivers
                 gpioPointer0 = mapPointer0;
                 gpioPointer1 = mapPointer1;
             }
+        }
+
+        private int MapPinNumber(char portController, int port)
+        {
+            int alphabetPosition = MapPortController(portController);
+
+            return alphabetPosition * 32 + port;
+        }
+
+        private (int PortController, int port) UnmapPinNumber(int pinNumber)
+        {
+            int port = pinNumber % 32;
+            int portController = (pinNumber - port) / 32;
+
+            return (portController, port);
+        }
+
+        private int MapPortController(char portController)
+        {
+            return portController switch
+            {
+                'A' => 0,
+                'B' => 1,
+                'C' => 2,
+                'D' => 3,
+                'E' => 4,
+                'F' => 5,
+                'G' => 6,
+                'H' => 7,
+                'I' => 8,
+                'J' => 9,
+                'K' => 10,
+                'L' => 11,
+                _ => throw new Exception()
+            };
+        }
+
+        private char UnmapPortController(int alphabetPosition)
+        {
+            return alphabetPosition switch
+            {
+                0 => 'A',
+                1 => 'B',
+                2 => 'C',
+                3 => 'D',
+                4 => 'E',
+                5 => 'F',
+                6 => 'G',
+                7 => 'H',
+                8 => 'I',
+                9 => 'J',
+                10 => 'K',
+                11 => 'L',
+                _ => throw new Exception()
+            };
         }
 
         /// <summary>
