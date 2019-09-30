@@ -12,7 +12,7 @@ namespace System.Device.Gpio.Drivers
     public unsafe partial class SunxiDriver : GpioDriver
     {
         private volatile IntPtr gpioPointer0;
-        private IntPtr gpioPointer1;
+        private volatile IntPtr gpioPointer1;
         private const int GpioRegisterOffset0 = 0x01C20800;
         private const int GpioRegisterOffset1 = 0x01F02C00;
         private static readonly object s_initializationLock = new object();
@@ -153,7 +153,7 @@ namespace System.Device.Gpio.Drivers
 
             uint dataValue = *dataPointer;
 
-            return Convert.ToBoolean((dataValue >> (unmapped.port - 1)) & 1) ? PinValue.High : PinValue.Low;
+            return Convert.ToBoolean((dataValue >> (unmapped.Port - 1)) & 1) ? PinValue.High : PinValue.Low;
         }
 
         /// <summary>
@@ -188,10 +188,10 @@ namespace System.Device.Gpio.Drivers
 
             // Get port controller, port number and shift
             var unmapped = UnmapPinNumber(pinNumber);
-            int cfgNum = unmapped.port / 8;
-            int cfgShift = unmapped.port % 8;
-            int pulNum = unmapped.port / 16;
-            int pulShift = unmapped.port % 16;
+            int cfgNum = unmapped.Port / 8;
+            int cfgShift = unmapped.Port % 8;
+            int pulNum = unmapped.Port / 16;
+            int pulShift = unmapped.Port % 16;
 
             // Get register address, register pointer
             int cfgAddress, pulAddress;
@@ -318,11 +318,11 @@ namespace System.Device.Gpio.Drivers
 
             if (value == PinValue.High)
             {
-                dataValue |= (uint)(1 << (unmapped.port - 1));
+                dataValue |= (uint)(1 << (unmapped.Port - 1));
             }
             else
             {
-                dataValue &= (uint)~(1 << (unmapped.port - 1));
+                dataValue &= (uint)~(1 << (unmapped.Port - 1));
             }
 
             *dataPointer = dataValue;
@@ -385,7 +385,7 @@ namespace System.Device.Gpio.Drivers
             return alphabetPosition * 32 + port;
         }
 
-        private (int PortController, int port) UnmapPinNumber(int pinNumber)
+        private (int PortController, int Port) UnmapPinNumber(int pinNumber)
         {
             int port = pinNumber % 32;
             int portController = (pinNumber - port) / 32;
@@ -410,26 +410,6 @@ namespace System.Device.Gpio.Drivers
                 'K' => 10,
                 'L' => 11,
                 'M' => 12,
-                _ => throw new Exception()
-            };
-        }
-
-        private char UnmapPortController(int alphabetPosition)
-        {
-            return alphabetPosition switch
-            {
-                0 => 'A',
-                1 => 'B',
-                2 => 'C',
-                3 => 'D',
-                4 => 'E',
-                5 => 'F',
-                6 => 'G',
-                7 => 'H',
-                8 => 'I',
-                9 => 'J',
-                10 => 'K',
-                11 => 'L',
                 _ => throw new Exception()
             };
         }
