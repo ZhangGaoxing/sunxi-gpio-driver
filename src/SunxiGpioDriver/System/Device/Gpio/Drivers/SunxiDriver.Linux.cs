@@ -134,13 +134,26 @@ namespace System.Device.Gpio.Drivers
         {
             ValidatePinNumber(pinNumber);
 
-            /*
-             * There are two registers that contain the value of a pin. Each hold the value of 32
-             * different pins. 1 bit represents the value of a pin, 0 is PinValue.Low and 1 is PinValue.High
-             */
+            var unmapped = UnmapPinNumber(pinNumber);
 
-            uint register = gpioPointer0->GPLEV[pinNumber / 32];
-            return Convert.ToBoolean((register >> (pinNumber % 32)) & 1) ? PinValue.High : PinValue.Low;
+            int dataAddress;
+            uint* dataPointer;
+            if (unmapped.PortController < 10)
+            {
+                dataAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + 0x10;
+
+                dataPointer = (uint*)(gpioPointer0 + dataAddress);
+            }
+            else
+            {
+                dataAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + 0x10;
+
+                dataPointer = (uint*)(gpioPointer1 + dataAddress);
+            }
+
+            uint dataValue = *dataPointer;
+
+            return Convert.ToBoolean((dataValue >> (unmapped.port - 1)) & 1) ? PinValue.High : PinValue.Low;
         }
 
         /// <summary>
@@ -180,14 +193,27 @@ namespace System.Device.Gpio.Drivers
             int pulNum = unmapped.port / 16;
             int pulShift = unmapped.port % 16;
 
-            // Get register address
-            int cfgAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + cfgNum * 0x04;
-            int pulAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04;
+            // Get register address, register pointer
+            int cfgAddress, pulAddress;
+            uint* cfgPointer, pulPointer;
+            if (unmapped.PortController < 10)
+            {
+                cfgAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + cfgNum * 0x04;
+                pulAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04;
 
-            // Get register pointer
-            uint* cfgPointer = (uint*)(gpioPointer0 + cfgAddress);
+                cfgPointer = (uint*)(gpioPointer0 + cfgAddress);
+                pulPointer = (uint*)(gpioPointer0 + pulAddress);
+            }
+            else
+            {
+                cfgAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + cfgNum * 0x04;
+                pulAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04;
+
+                cfgPointer = (uint*)(gpioPointer1 + cfgAddress);
+                pulPointer = (uint*)(gpioPointer1 + pulAddress);
+            }
+
             uint cfgValue = *cfgPointer;
-            uint* pulPointer = (uint*)(gpioPointer0 + pulAddress);
             uint pulValue = *pulPointer;
 
             // Clear register
@@ -224,61 +250,6 @@ namespace System.Device.Gpio.Drivers
             {
                 _sysFSModes.Add(pinNumber, mode);
             }
-        }
-
-        /// <summary>
-        /// Sets the resistor pull up/down mode for an input pin.
-        /// </summary>
-        /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
-        /// <param name="mode">The mode of a pin to set the resistor pull up/down mode.</param>
-        private void SetInputPullMode(int pinNumber, PinMode mode)
-        {
-            byte modeToPullMode = mode switch
-            {
-                PinMode.Input => (byte)0,
-                PinMode.InputPullDown => (byte)1,
-                PinMode.InputPullUp => (byte)2,
-                _ => throw new ArgumentException($"{mode} is not supported as a pull up/down mode.")
-            };
-
-            /*
-             * This is the process outlined by the BCM2835 datasheet on how to set the pull mode.
-             * The GPIO Pull - up/down Clock Registers control the actuation of internal pull-downs on the respective GPIO pins.
-             * These registers must be used in conjunction with the GPPUD register to effect GPIO Pull-up/down changes.
-             * The following sequence of events is required:
-             *
-             * 1. Write to GPPUD to set the required control signal (i.e.Pull-up or Pull-Down or neither to remove the current Pull-up/down)
-             * 2. Wait 150 cycles – this provides the required set-up time for the control signal
-             * 3. Write to GPPUDCLK0/1 to clock the control signal into the GPIO pads you wish to modify
-             *    – NOTE only the pads which receive a clock will be modified, all others will retain their previous state.
-             * 4. Wait 150 cycles – this provides the required hold time for the control signal
-             * 5. Write to GPPUD to remove the control signal
-             * 6. Write to GPPUDCLK0/1 to remove the clock
-             */
-
-            uint* gppudPointer = &gpioPointer0->GPPUD;
-            uint register = *gppudPointer;
-            register &= ~0b11U;
-            register |= modeToPullMode;
-            *gppudPointer = register;
-
-            // Wait 150 cycles – this provides the required set-up time for the control signal
-            Thread.SpinWait(150);
-
-            int index = pinNumber / 32;
-            int shift = pinNumber % 32;
-            uint* gppudclkPointer = &gpioPointer0->GPPUDCLK[index];
-            register = *gppudclkPointer;
-            register |= 1U << shift;
-            *gppudclkPointer = register;
-
-            // Wait 150 cycles – this provides the required hold time for the control signal
-            Thread.SpinWait(150);
-
-            register = *gppudPointer;
-            register &= ~0b11U;
-            *gppudPointer = register;
-            *gppudclkPointer = 0;
         }
 
         /// <summary>
@@ -326,34 +297,35 @@ namespace System.Device.Gpio.Drivers
         {
             ValidatePinNumber(pinNumber);
 
-            /*
-             * If the value is High, GPSET register is used. Otherwise, GPCLR will be used. For
-             * both cases, a 1 is set on the corresponding bit in the register in order to set
-             * the desired value.
-             */
+            var unmapped = UnmapPinNumber(pinNumber);
 
-            uint* registerPointer = (value == PinValue.High) ? &gpioPointer0->GPSET[pinNumber / 32] : &gpioPointer0->GPCLR[pinNumber / 32];
-            uint register = *registerPointer;
-            register = 1U << (pinNumber % 32);
-            *registerPointer = register;
-        }
+            int dataAddress;
+            uint* dataPointer;
+            if (unmapped.PortController < 10)
+            {
+                dataAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + 0x10;
 
-        protected ulong SetRegister
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return *(ulong*)(gpioPointer0->GPSET); }
+                dataPointer = (uint*)(gpioPointer0 + dataAddress);
+            }
+            else
+            {
+                dataAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + 0x10;
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set { *(ulong*)(gpioPointer0->GPSET) = value; }
-        }
+                dataPointer = (uint*)(gpioPointer1 + dataAddress);
+            }
 
-        protected ulong ClearRegister
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get { return *(ulong*)(gpioPointer0->GPCLR); }
+            uint dataValue = *dataPointer;
 
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            set { *(ulong*)(gpioPointer0->GPCLR) = value; }
+            if (value == PinValue.High)
+            {
+                dataValue |= (uint)(1 << (unmapped.port - 1));
+            }
+            else
+            {
+                dataValue &= (uint)~(1 << (unmapped.port - 1));
+            }
+
+            *dataPointer = dataValue;
         }
 
         private void InitializeSysFS()
@@ -437,6 +409,7 @@ namespace System.Device.Gpio.Drivers
                 'J' => 9,
                 'K' => 10,
                 'L' => 11,
+                'M' => 12,
                 _ => throw new Exception()
             };
         }
