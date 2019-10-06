@@ -8,14 +8,6 @@ namespace System.Device.Gpio.Drivers
     {
         protected internal override int PinCount => 28;
 
-        private void ValidatePinNumber(int pinNumber)
-        {
-            if (pinNumber < 0 || pinNumber > 27)
-            {
-                throw new ArgumentException("The specified pin number is invalid.", nameof(pinNumber));
-            }
-        }
-
         /// <summary>
         /// Converts a board pin number to the driver's logical numbering scheme.
         /// </summary>
@@ -23,10 +15,7 @@ namespace System.Device.Gpio.Drivers
         /// <returns>The pin number in the driver's logical numbering scheme.</returns>
         protected internal override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber)
         {
-            return pinNumber switch
-            {                
-                _ => throw new ArgumentException($"Board (header) pin {pinNumber} is not a GPIO pin on the {GetType().Name} device.", nameof(pinNumber))
-            };
+            return pinNumber;
         }
     }
 }

@@ -11,14 +11,17 @@ namespace System.Device.Gpio.Drivers
 {
     public unsafe partial class SunxiDriver : GpioDriver
     {
-        private volatile IntPtr gpioPointer0;
-        private volatile IntPtr gpioPointer1;
+        private IntPtr gpioPointer0;
+        private IntPtr gpioPointer1;
         private const int GpioRegisterOffset0 = 0x01C20800;
         private const int GpioRegisterOffset1 = 0x01F02C00;
+        // final_address = mapped_address + (target_address & map_mask) https://stackoverflow.com/a/37922968
+        private readonly int mapMask = Environment.SystemPageSize - 1;
+
         private static readonly object s_initializationLock = new object();
         private static readonly object s_sysFsInitializationLock = new object();
         private const string GpioMemoryFilePath = "/dev/mem";
-        private UnixDriver _sysFSDriver = null;
+        private UnixDriver _sysFSDriver;
         private readonly IDictionary<int, PinMode> _sysFSModes = new Dictionary<int, PinMode>();
 
         protected override void Dispose(bool disposing)
@@ -35,10 +38,10 @@ namespace System.Device.Gpio.Drivers
                 gpioPointer1 = default;
             }
 
-            if (_sysFSDriver != null)
+            if (_sysFSDriver != default)
             {
                 _sysFSDriver.Dispose();
-                _sysFSDriver = null;
+                _sysFSDriver = default;
             }
         }
 
@@ -70,7 +73,6 @@ namespace System.Device.Gpio.Drivers
         /// <param name="callback">Delegate that defines the structure for callbacks when a pin value changed event occurs.</param>
         protected internal override void AddCallbackForPinValueChangedEvent(int pinNumber, PinEventTypes eventTypes, PinChangeEventHandler callback)
         {
-            ValidatePinNumber(pinNumber);
             InitializeSysFS();
 
             _sysFSDriver.OpenPin(pinNumber);
@@ -85,8 +87,6 @@ namespace System.Device.Gpio.Drivers
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         protected internal override void ClosePin(int pinNumber)
         {
-            ValidatePinNumber(pinNumber);
-
             if (_sysFSModes.ContainsKey(pinNumber) && _sysFSModes[pinNumber] == PinMode.Output)
             {
                 Write(pinNumber, PinValue.Low);
@@ -120,7 +120,6 @@ namespace System.Device.Gpio.Drivers
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         protected internal override void OpenPin(int pinNumber)
         {
-            ValidatePinNumber(pinNumber);
             Initialize();
             SetPinMode(pinNumber, PinMode.Input);
         }
@@ -132,28 +131,26 @@ namespace System.Device.Gpio.Drivers
         /// <returns>The value of the pin.</returns>
         protected internal unsafe override PinValue Read(int pinNumber)
         {
-            ValidatePinNumber(pinNumber);
-
             var unmapped = UnmapPinNumber(pinNumber);
 
             int dataAddress;
             uint* dataPointer;
             if (unmapped.PortController < 10)
             {
-                dataAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + 0x10;
+                dataAddress = (GpioRegisterOffset0 + unmapped.PortController * 0x24 + 0x10) & mapMask;
 
                 dataPointer = (uint*)(gpioPointer0 + dataAddress);
             }
             else
             {
-                dataAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + 0x10;
+                dataAddress = (GpioRegisterOffset1 + unmapped.PortController * 0x24 + 0x10) & mapMask;
 
                 dataPointer = (uint*)(gpioPointer1 + dataAddress);
             }
 
             uint dataValue = *dataPointer;
 
-            return Convert.ToBoolean((dataValue >> (unmapped.Port - 1)) & 1) ? PinValue.High : PinValue.Low;
+            return Convert.ToBoolean((dataValue >> unmapped.Port) & 1) ? PinValue.High : PinValue.Low;
         }
 
         /// <summary>
@@ -163,7 +160,6 @@ namespace System.Device.Gpio.Drivers
         /// <param name="callback">Delegate that defines the structure for callbacks when a pin value changed event occurs.</param>
         protected internal override void RemoveCallbackForPinValueChangedEvent(int pinNumber, PinChangeEventHandler callback)
         {
-            ValidatePinNumber(pinNumber);
             InitializeSysFS();
 
             _sysFSDriver.OpenPin(pinNumber);
@@ -179,8 +175,6 @@ namespace System.Device.Gpio.Drivers
         /// <param name="mode">The mode to be set.</param>
         protected internal override void SetPinMode(int pinNumber, PinMode mode)
         {
-            ValidatePinNumber(pinNumber);
-
             if (!IsPinModeSupported(pinNumber, mode))
             {
                 throw new InvalidOperationException($"The pin {pinNumber} does not support the selected mode {mode}.");
@@ -198,16 +192,16 @@ namespace System.Device.Gpio.Drivers
             uint* cfgPointer, pulPointer;
             if (unmapped.PortController < 10)
             {
-                cfgAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + cfgNum * 0x04;
-                pulAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04;
+                cfgAddress = (GpioRegisterOffset0 + unmapped.PortController * 0x24 + cfgNum * 0x04) & mapMask;
+                pulAddress = (GpioRegisterOffset0 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04) & mapMask;
 
                 cfgPointer = (uint*)(gpioPointer0 + cfgAddress);
                 pulPointer = (uint*)(gpioPointer0 + pulAddress);
             }
             else
             {
-                cfgAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + cfgNum * 0x04;
-                pulAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04;
+                cfgAddress = (GpioRegisterOffset1 + unmapped.PortController * 0x24 + cfgNum * 0x04) & mapMask;
+                pulAddress = (GpioRegisterOffset1 + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04) & mapMask;
 
                 cfgPointer = (uint*)(gpioPointer1 + cfgAddress);
                 pulPointer = (uint*)(gpioPointer1 + pulAddress);
@@ -237,7 +231,7 @@ namespace System.Device.Gpio.Drivers
                 default:
                     throw new ArgumentException();
             }
-
+            
             *cfgPointer = cfgValue;
             Thread.SpinWait(150);
             *pulPointer = pulValue;
@@ -261,7 +255,6 @@ namespace System.Device.Gpio.Drivers
         /// <returns>A structure that contains the result of the waiting operation.</returns>
         protected internal override WaitForEventResult WaitForEvent(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
-            ValidatePinNumber(pinNumber);
             InitializeSysFS();
 
             _sysFSDriver.OpenPin(pinNumber);
@@ -278,8 +271,7 @@ namespace System.Device.Gpio.Drivers
         /// <param name="cancellationToken">The cancellation token of when the operation should stop waiting for an event.</param>
         /// <returns>A task representing the operation of getting the structure that contains the result of the waiting operation</returns>
         protected internal override ValueTask<WaitForEventResult> WaitForEventAsync(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
-        {
-            ValidatePinNumber(pinNumber);
+        { 
             InitializeSysFS();
 
             _sysFSDriver.OpenPin(pinNumber);
@@ -295,21 +287,19 @@ namespace System.Device.Gpio.Drivers
         /// <param name="value">The value to be written to the pin.</param>
         protected internal override void Write(int pinNumber, PinValue value)
         {
-            ValidatePinNumber(pinNumber);
-
             var unmapped = UnmapPinNumber(pinNumber);
 
             int dataAddress;
             uint* dataPointer;
             if (unmapped.PortController < 10)
             {
-                dataAddress = GpioRegisterOffset0 + unmapped.PortController * 0x24 + 0x10;
+                dataAddress = (GpioRegisterOffset0 + unmapped.PortController * 0x24 + 0x10) & mapMask;
 
                 dataPointer = (uint*)(gpioPointer0 + dataAddress);
             }
             else
             {
-                dataAddress = GpioRegisterOffset1 + unmapped.PortController * 0x24 + 0x10;
+                dataAddress = (GpioRegisterOffset1 + unmapped.PortController * 0x24 + 0x10) & mapMask;
 
                 dataPointer = (uint*)(gpioPointer1 + dataAddress);
             }
@@ -318,11 +308,11 @@ namespace System.Device.Gpio.Drivers
 
             if (value == PinValue.High)
             {
-                dataValue |= (uint)(1 << (unmapped.Port - 1));
+                dataValue |= (uint)(1 << unmapped.Port);
             }
             else
             {
-                dataValue &= (uint)~(1 << (unmapped.Port - 1));
+                dataValue &= (uint)~(1 << unmapped.Port);
             }
 
             *dataPointer = dataValue;
@@ -330,13 +320,13 @@ namespace System.Device.Gpio.Drivers
 
         private void InitializeSysFS()
         {
-            if (_sysFSDriver != null)
+            if (_sysFSDriver != default)
             {
                 return;
             }
             lock (s_sysFsInitializationLock)
             {
-                if (_sysFSDriver != null)
+                if (_sysFSDriver != default)
                 {
                     return;
                 }
@@ -346,14 +336,14 @@ namespace System.Device.Gpio.Drivers
 
         private void Initialize()
         {
-            if (gpioPointer0 != null)
+            if (gpioPointer0 != default)
             {
                 return;
             }
 
             lock (s_initializationLock)
             {
-                if (gpioPointer0 != null)
+                if (gpioPointer0 != default)
                 {
                     return;
                 }
@@ -364,8 +354,8 @@ namespace System.Device.Gpio.Drivers
                     throw new IOException($"Error {Marshal.GetLastWin32Error()} initializing the Gpio driver.");
                 }
 
-                IntPtr mapPointer0 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, GpioRegisterOffset0);
-                IntPtr mapPointer1 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, GpioRegisterOffset1);
+                IntPtr mapPointer0 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize - 1, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, GpioRegisterOffset0 & ~mapMask);
+                IntPtr mapPointer1 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize - 1, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, GpioRegisterOffset1 & ~mapMask);
                 if (mapPointer0.ToInt64() == -1 || mapPointer1.ToInt64() == -1)
                 {
                     throw new IOException($"Error {Marshal.GetLastWin32Error()} initializing the Gpio driver.");
@@ -374,7 +364,7 @@ namespace System.Device.Gpio.Drivers
                 Interop.close(fileDescriptor);
 
                 gpioPointer0 = mapPointer0;
-                gpioPointer1 = mapPointer1;
+                gpioPointer1 = mapPointer0;
             }
         }
 
@@ -421,8 +411,6 @@ namespace System.Device.Gpio.Drivers
         /// <returns>The mode of the pin.</returns>
         protected internal override PinMode GetPinMode(int pinNumber)
         {
-            ValidatePinNumber(pinNumber);
-
             if (!_sysFSModes.ContainsKey(pinNumber))
             {
                 throw new InvalidOperationException("Can not get a pin mode of a pin that is not open.");
