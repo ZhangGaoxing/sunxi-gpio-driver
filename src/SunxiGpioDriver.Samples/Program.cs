@@ -7,7 +7,7 @@ namespace AllwinnerGpioDriver.Samples
 {
     class Program
     {
-        static GpioController gpio = new GpioController(PinNumberingScheme.Logical, new SunxiDriver());
+        static GpioController gpio = new GpioController(PinNumberingScheme.Logical, new OrangePiZeroDriver());
 
         static void Main(string[] args)
         {

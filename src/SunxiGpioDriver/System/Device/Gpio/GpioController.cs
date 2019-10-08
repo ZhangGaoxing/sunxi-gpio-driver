@@ -289,7 +289,7 @@ namespace System.Device.Gpio
 
         private void Dispose(bool disposing)
         {
-            foreach(int pin in _openPins)
+            foreach (int pin in _openPins)
             {
                 _driver.ClosePin(pin);
             }

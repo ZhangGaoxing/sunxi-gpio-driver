@@ -2,10 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information
 
-using System.Collections.Generic;
-using System.Threading;
-using System.Runtime.InteropServices;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace System.Device.Gpio.Drivers
 {
@@ -86,7 +86,7 @@ namespace System.Device.Gpio.Drivers
             return _pinNumberToEventHandler.ContainsKey(pinNumber);
         }
 
-        protected internal override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber) => 
+        protected internal override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber) =>
             throw ExceptionHelper.GetPlatformNotSupportedException(ExceptionResource.ConvertPinNumberingSchemaError);
 
         protected internal override PinMode GetPinMode(int pinNumber)
@@ -150,7 +150,7 @@ namespace System.Device.Gpio.Drivers
 
         protected internal override void SetPinMode(int pinNumber, PinMode mode)
         {
-            int requestResult  = -1;
+            int requestResult = -1;
             if (_pinNumberToSafeLineHandle.TryGetValue(pinNumber, out SafeLineHandle pinHandle))
             {
                 string consumer = pinNumber.ToString();
@@ -169,7 +169,7 @@ namespace System.Device.Gpio.Drivers
             if (requestResult == -1)
             {
                 throw ExceptionHelper.GetIOException(ExceptionResource.SetPinModeError, Marshal.GetLastWin32Error(), pinNumber);
-            } 
+            }
         }
 
         protected internal override WaitForEventResult WaitForEvent(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
@@ -241,7 +241,7 @@ namespace System.Device.Gpio.Drivers
                 _pinNumberToEventHandler = null;
             }
 
-            
+
             if (_pinNumberToSafeLineHandle != null)
             {
                 foreach (int pin in _pinNumberToSafeLineHandle.Keys)

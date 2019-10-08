@@ -440,7 +440,8 @@ namespace System.Device.Gpio.Drivers
                     try
                     {
                         s_eventThreadCancellationTokenSource.Cancel();
-                    } catch (ObjectDisposedException) { }
+                    }
+                    catch (ObjectDisposedException) { }
                     while (_eventDetectionThread != null && _eventDetectionThread.IsAlive)
                     {
                         Thread.Sleep(TimeSpan.FromMilliseconds(10)); // Wait until the event detection thread is aborted.
@@ -461,7 +462,8 @@ namespace System.Device.Gpio.Drivers
                 {
                     s_eventThreadCancellationTokenSource.Cancel();
                     s_eventThreadCancellationTokenSource.Dispose();
-                } catch (ObjectDisposedException) { } //The Cancellation Token source may already be disposed.
+                }
+                catch (ObjectDisposedException) { } //The Cancellation Token source may already be disposed.
                 while (_eventDetectionThread != null && _eventDetectionThread.IsAlive)
                 {
                     Thread.Sleep(TimeSpan.FromMilliseconds(10)); // Wait until the event detection thread is aborted.
@@ -536,7 +538,8 @@ namespace System.Device.Gpio.Drivers
                         var args = new PinValueChangedEventArgs(eventTypes, pinNumber);
                         _devicePins[pinNumber]?.OnPinValueChanged(args);
                     }
-                } catch (ObjectDisposedException)
+                }
+                catch (ObjectDisposedException)
                 {
                     break; //If cancellation token source is dispossed then we need to exit this thread.
                 }
@@ -559,7 +562,7 @@ namespace System.Device.Gpio.Drivers
             _devicePins[pinNumber].ValueFalling -= callback;
             _devicePins[pinNumber].ValueRising -= callback;
             if (_devicePins[pinNumber].IsCallbackListEmpty())
-            { 
+            {
                 _pinsToDetectEventsCount--;
 
                 bool closePollFileDescriptor = (_pinsToDetectEventsCount == 0);
