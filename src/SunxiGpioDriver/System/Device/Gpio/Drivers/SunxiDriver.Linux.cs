@@ -40,10 +40,7 @@ namespace System.Device.Gpio.Drivers
         private UnixDriver _sysFSDriver;
         private readonly IDictionary<int, PinMode> _sysFSModes = new Dictionary<int, PinMode>();
 
-        protected SunxiDriver()
-        {
-
-        }
+        protected SunxiDriver() { }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SunxiDriver"/>.
