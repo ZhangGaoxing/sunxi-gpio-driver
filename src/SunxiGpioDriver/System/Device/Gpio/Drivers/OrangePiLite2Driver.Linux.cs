@@ -16,7 +16,7 @@ namespace System.Device.Gpio.Drivers
         protected override int GpioRegisterOffset1 => 0x07022000;
 
         /// <summary>
-        /// Orange Pi Zero has 17 GPIO pins.
+        /// Orange Pi Lite 2 has 17 GPIO pins.
         /// </summary>
         protected internal override int PinCount => 17;
 

@@ -1,29 +1,26 @@
 ﻿using System;
 using System.Device.Gpio;
-using System.Device.Gpio.Drivers;
-using System.Threading;
 
 namespace AllwinnerGpioDriver.Samples
 {
     class Program
     {
-        static GpioController gpio = new GpioController(PinNumberingScheme.Board);
-
         static void Main(string[] args)
         {
+            using GpioController gpio = new GpioController(PinNumberingScheme.Board);
+            //using GpioController gpio = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
+
             gpio.OpenPin(10);
             gpio.SetPinMode(10, PinMode.InputPullUp);
 
-            gpio.RegisterCallbackForPinValueChangedEvent(10, PinEventTypes.Rising, handler);
+            gpio.RegisterCallbackForPinValueChangedEvent(10, PinEventTypes.Rising, Switch_Pressed_Handler);
 
             Console.ReadKey();
-
-            gpio.Dispose();
         }
 
-        private static void handler(object sender, PinValueChangedEventArgs pinValueChangedEventArgs)
+        private static void Switch_Pressed_Handler(object sender, PinValueChangedEventArgs pinValueChangedEventArgs)
         {
-            Console.WriteLine("switch pressed");
+            Console.WriteLine("The switch is pressed.");
         }
     }
 }
