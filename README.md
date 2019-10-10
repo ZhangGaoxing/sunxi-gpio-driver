@@ -64,14 +64,24 @@ gpio.Write(10, PinValue.High);
     }
    ```
 
-## Run the sample
+## Sample
+
+### Hardware required
+* Orange Pi Zero
+* LED
+* 220 Ω resistor
+* Male/Female Jumper Wires
+
+Connect the LED to Pin7 (PA6, GPIO 6).
+
+### Run the sample
 ```
 cd SunxiGpioDriver.Samples
 dotnet publish -c release -r linux-arm -o YOUR_FOLDER
 sudo dotnet YOUR_FOLDER/SunxiGpioDriver.Samples.dll
 ```
 
-## Run the sample with Docker
+### Run the sample with Docker
 ```
 docker build -t sunxi-sample -f Dockerfile .
 docker run --rm -it --device /dev/mem sunxi-sample

@@ -1,4 +1,5 @@
 ﻿using System.Device.Gpio;
+using System.Device.Gpio.Drivers;
 using System.Threading;
 
 namespace AllwinnerGpioDriver.Samples
@@ -8,7 +9,7 @@ namespace AllwinnerGpioDriver.Samples
         static void Main(string[] args)
         {
             int pinNum = 7;
-            using GpioController gpio = new GpioController(PinNumberingScheme.Board);
+            using GpioController gpio = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
 
             gpio.OpenPin(pinNum);
             gpio.SetPinMode(pinNum, PinMode.Output);
