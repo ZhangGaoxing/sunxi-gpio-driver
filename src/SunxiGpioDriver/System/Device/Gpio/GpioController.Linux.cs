@@ -47,29 +47,6 @@ namespace System.Device.Gpio
             }
             catch { }
 
-            string[] cpuInfoLines = File.ReadAllLines(CpuInfoPath);
-            Regex regex = new Regex(@"Hardware\s*:\s*(.*)");
-            foreach (string cpuInfoLine in cpuInfoLines)
-            {
-                Match match = regex.Match(cpuInfoLine);
-                if (match.Success)
-                {
-                    if (match.Groups.Count > 1)
-                    {
-                        if (match.Groups[1].Value == RaspberryPiHardware)
-                        {
-                            return new RaspberryPi3Driver();
-                        }
-                        // Commenting out as HummingBoard driver is not implemented yet, will be added back after implementation 
-                        // https://github.com/dotnet/iot/issues/76                
-                        //if (match.Groups[1].Value == HummingBoardHardware)
-                        //{
-                        //    return new HummingBoardDriver();
-                        //} 
-                        return UnixDriver.Create();
-                    }
-                }
-            }
             return UnixDriver.Create();
         }
     }
