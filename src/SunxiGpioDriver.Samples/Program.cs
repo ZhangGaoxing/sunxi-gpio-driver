@@ -1,38 +1,24 @@
-﻿using System;
-using System.Device.Gpio;
+﻿using System.Device.Gpio;
 using System.Threading;
 
 namespace AllwinnerGpioDriver.Samples
 {
     class Program
     {
-        static int number;
-        static GpioController gpio;
-
         static void Main(string[] args)
         {
-            using (gpio = new GpioController(PinNumberingScheme.Board))
+            int pinNum = 7;
+            using GpioController gpio = new GpioController(PinNumberingScheme.Board);
+
+            gpio.OpenPin(pinNum);
+            gpio.SetPinMode(pinNum, PinMode.Output);
+
+            for (int i = 0; i < 10; i++)
             {
-                try
-                {
-                    while (true)
-                    {
-                        Console.WriteLine("Please input pin number in the board pin header: ");
-                        number = Convert.ToInt32(Console.ReadLine());
-
-                        gpio.OpenPin(number);
-                        gpio.SetPinMode(number, PinMode.Output);
-
-                        gpio.Write(number, PinValue.High);
-                        Thread.Sleep(1000);
-
-                        gpio.ClosePin(number);
-                    }
-                }
-                catch
-                {
-                    Console.WriteLine("Exit.");
-                }
+                gpio.Write(pinNum, PinValue.High);
+                Thread.Sleep(500);
+                gpio.Write(pinNum, PinValue.Low);
+                Thread.Sleep(500);
             }
         }
     }
