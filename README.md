@@ -84,5 +84,5 @@ sudo dotnet YOUR_FOLDER/SunxiGpioDriver.Samples.dll
 ### Run the sample with Docker
 ```
 docker build -t sunxi-sample -f Dockerfile .
-docker run --rm -it --device /dev/mem sunxi-sample
+docker run --rm -it --privileged=true --device=/dev/mem sunxi-sample
 ```
