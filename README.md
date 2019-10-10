@@ -4,7 +4,7 @@
 
 [dotnet/iot #780](https://github.com/dotnet/iot/pull/780)
 
-## Getting Started
+## Getting started
 
 ### Generic GPIO driver: `SunxiDriver`
 ```C#
@@ -35,6 +35,35 @@ gpio.SetPinMode(10, PinMode.Output);
 gpio.Write(10, PinValue.High);
 ```
 
+## Adding new drivers
+1. Inheriting `SunxiDriver` Class.
+    ```C#
+    public class OrangePiZeroDriver : SunxiDriver { }
+    ```
+2. Overriding the GPIO base addresses.
+    ```C#
+    protected override int GpioRegisterOffset0 => 0x01C20800;
+    protected override int GpioRegisterOffset1 => 0x01F02C00;
+    ```
+3. Overriding the pin count.
+    ```C#
+    // Orange Pi Zero has 17 GPIO pins.
+    protected internal override int PinCount => 17;
+    ```
+4. Overriding the mapping method for converting a board pin number to the driver's logical numbering scheme.
+   ```C#
+    protected internal override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber)
+    {
+        return pinNumber switch
+        {
+            3 => MapPinNumber('A', 12),
+            5 => MapPinNumber('A', 11),
+            // ...
+            _ => throw new ArgumentException($"Board (header) pin {pinNumber} is not a GPIO pin on the {GetType().Name} device.", nameof(pinNumber))
+        };
+    }
+   ```
+
 ## Run the sample
 ```
 cd SunxiGpioDriver.Samples
@@ -43,8 +72,6 @@ sudo dotnet YOUR_FOLDER/SunxiGpioDriver.Samples.dll
 ```
 
 ## Run the sample with Docker
-Before build docker image, you need to modify SDK, runtime and apt sources(in China) to adapt to the corresponding Linux platform.
-
 ```
 docker build -t sunxi-sample -f Dockerfile .
 docker run --rm -it --device /dev/mem sunxi-sample
