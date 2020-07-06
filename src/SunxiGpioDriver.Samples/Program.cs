@@ -1,5 +1,6 @@
-﻿using System.Device.Gpio;
-using System.Device.Gpio.Drivers;
+﻿using System;
+using Iot.Device.Gpio.Drivers;
+using System.Device.Gpio;
 using System.Threading;
 
 namespace AllwinnerGpioDriver.Samples

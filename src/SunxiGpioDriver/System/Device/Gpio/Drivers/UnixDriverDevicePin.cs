@@ -6,9 +6,11 @@ namespace System.Device.Gpio.Drivers
 {
     internal sealed class UnixDriverDevicePin : IDisposable
     {
-        public UnixDriverDevicePin()
+        public UnixDriverDevicePin(PinValue currentValue)
         {
+            LastValue = currentValue;
             FileDescriptor = -1;
+            ActiveEdges = PinEventTypes.None;
         }
 
         public event PinChangeEventHandler ValueRising;
@@ -16,12 +18,25 @@ namespace System.Device.Gpio.Drivers
 
         public int FileDescriptor;
 
+        public PinEventTypes ActiveEdges
+        {
+            get;
+            set;
+        }
+
+        public PinValue LastValue
+        {
+            get;
+            set;
+        }
+
         public void OnPinValueChanged(PinValueChangedEventArgs args)
         {
             if (ValueRising != null && args.ChangeType == PinEventTypes.Rising)
             {
                 ValueRising?.Invoke(this, args);
             }
+
             if (ValueFalling != null && args.ChangeType == PinEventTypes.Falling)
             {
                 ValueFalling?.Invoke(this, args);
@@ -40,6 +55,8 @@ namespace System.Device.Gpio.Drivers
                 Interop.close(FileDescriptor);
                 FileDescriptor = -1;
             }
+
+            ActiveEdges = PinEventTypes.None;
             ValueRising = null;
             ValueFalling = null;
         }

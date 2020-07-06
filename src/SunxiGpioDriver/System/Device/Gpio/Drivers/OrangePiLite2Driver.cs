@@ -2,7 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-namespace System.Device.Gpio.Drivers
+using System;
+
+namespace Iot.Device.Gpio.Drivers
 {
     /// <summary>
     /// A GPIO driver for the Orange Pi Lite 2.
@@ -10,11 +12,8 @@ namespace System.Device.Gpio.Drivers
     /// <remarks>
     /// SoC: Allwinner H6 (sun50iw6p1)
     /// </remarks>
-    public class OrangePiLite2Driver : SunxiDriver
+    public class OrangePiLite2Driver : Sun50iw6p1Driver
     {
-        protected override int GpioRegisterOffset0 => 0x0300B000;
-        protected override int GpioRegisterOffset1 => 0x07022000;
-
         /// <summary>
         /// Orange Pi Lite 2 has 17 GPIO pins.
         /// </summary>
