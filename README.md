@@ -2,32 +2,29 @@
 
 **sunxi** represents the family of ARM SoCs from Allwinner Technology. This project contains a **full function(PULL-UP, PULL-DOWN)** generic GPIO driver `SunxiDriver` for Allwinner SoCs and some special GPIO drivers like `OrangePiZeroDriver`, `OrangePiLite2Driver`.
 
-[dotnet/iot #780](https://github.com/dotnet/iot/pull/780)
-
 ## Getting started
 
 ### Generic GPIO driver: `SunxiDriver`
+
 ```C#
 // Beacuse this is a generic driver, the pin scheme can only be Logical.
-// The offset(base address) can be find in the corresponding SoC datasheet.
-using GpioController gpio = new GpioController(PinNumberingScheme.Logical, new SunxiDriver(gpioRegisterOffset0: 0x01C20800, gpioRegisterOffset1: 0x01F02C00));
+// The base addresses can be found in the corresponding SoC datasheet.
+using GpioController gpio = new GpioController(PinNumberingScheme.Logical, new SunxiDriver(cpuxPortBaseAddress: 0x01C20800, cpusPortBaseAddress: 0x01F02C00));
 
 // Convert pin number to logical scheme.
-int number = SunxiDriver.MapPinNumber('A', 10);
+int pinNumber = SunxiDriver.MapPinNumber(portController: 'A', port: 10);
 // Open the GPIO pin.
-gpio.OpenPin(number);
+gpio.OpenPin(pinNumber);
 // Set the pin mode.
-gpio.SetPinMode(number, PinMode.InputPullUp);
+gpio.SetPinMode(pinNumber, PinMode.InputPullUp);
 // Read current value of the pin.
-PinValue value = gpio.Read(number);
-// Register a value changed callback.
-gpio.RegisterCallbackForPinValueChangedEvent(10, PinEventTypes.Rising, Switch_Pressed_Handler);
+PinValue value = gpio.Read(pinNumber);
 ```
 
 ### Special GPIO driver: `OrangePiZeroDriver`, `OrangePiLite2Driver`
+
 ```C#
-// The programm get the best applicable driver automatically.
-using GpioController gpio = new GpioController(PinNumberingScheme.Board);
+using GpioController gpio = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
 
 gpio.OpenPin(10);
 gpio.SetPinMode(10, PinMode.Output);
@@ -36,43 +33,65 @@ gpio.Write(10, PinValue.High);
 ```
 
 ## Adding new drivers
+
+### For SoCs
+
 1. Inheriting `SunxiDriver` Class.
     ```C#
-    public class OrangePiZeroDriver : SunxiDriver { }
+    // For Allwinner H2+/H3
+    public class Sun8iw7p1Driver : SunxiDriver { }
     ```
 2. Overriding the GPIO base addresses.
     ```C#
-    protected override int GpioRegisterOffset0 => 0x01C20800;
-    protected override int GpioRegisterOffset1 => 0x01F02C00;
+    protected override int CpuxPortBaseAddress => 0x01C20800;
+    protected override int CpusPortBaseAddress => 0x01F02C00;
     ```
-3. Overriding the pin count.
+
+### For Boards
+
+1. Inherit the corresponding SoC class.
+    ```C#
+    // For Orange Pi Zero
+    public class OrangePiZeroDriver : Sun8iw7p1Driver { }
+    ```
+2. Overriding the pin count.
     ```C#
     // Orange Pi Zero has 17 GPIO pins.
     protected internal override int PinCount => 17;
     ```
-4. Overriding the mapping method for converting a board pin number to the driver's logical numbering scheme.
-   ```C#
+3. Overriding the mapping method for converting a board pin number to the driver's logical numbering scheme.
+    ```C#
+    // Mapping from board pins to logic pins.
+    private readonly int[] _pinNumberConverter = new int[27]
+    {
+        -1, -1, -1, MapPinNumber('A', 12), -1, MapPinNumber('A', 11), -1, MapPinNumber('A', 6), MapPinNumber('G', 6), -1,
+        MapPinNumber('G', 7), MapPinNumber('A', 1), MapPinNumber('A', 7), MapPinNumber('A', 0), -1, MapPinNumber('A', 3),
+        MapPinNumber('A', 19), -1, MapPinNumber('A', 18), MapPinNumber('A', 15), -1, MapPinNumber('A', 16), MapPinNumber('A', 2),
+        MapPinNumber('A', 14), MapPinNumber('A', 13), -1, MapPinNumber('A', 10)
+    };
+
     protected internal override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber)
     {
-        return pinNumber switch
-        {
-            3 => MapPinNumber('A', 12),
-            5 => MapPinNumber('A', 11),
-            // ...
-            _ => throw new ArgumentException($"Board (header) pin {pinNumber} is not a GPIO pin on the {GetType().Name} device.", nameof(pinNumber))
-        };
+        int num = _pinNumberConverter[pinNumber];
+        return num != -1 ? num : 
+            throw new ArgumentException($"Board (header) pin {pinNumber} is not a GPIO pin on the {GetType().Name} device.", nameof(pinNumber));
     }
-   ```
+    ```
 
-## Sample
+# Sunxi GPIO Driver's Sample
 
 ### Hardware required
+
 * Orange Pi Zero
-* LED
-* 220 Ω resistor
+* Switch
 * Male/Female Jumper Wires
 
-Connect the LED to Pin7 (PA6, GPIO 6).
+## Circuit
+
+![](opi_circuit.png)
+
+* Switch 1 - Board Pin7 (GPIO 6)
+* Switch 2 - GND
 
 ### Run the sample
 ```

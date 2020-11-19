@@ -1,11 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.1</TargetFramework>
+    <TargetFrameworks>net5;netcoreapp2.1</TargetFrameworks>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <LangVersion>preview</LangVersion>
-    <AssemblyName>System.Device.Gpio</AssemblyName>
-    <RootNamespace>System.Device.Gpio</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
   </PropertyGroup>
-  
+
+  <ItemGroup>
+    <PackageReference Include="System.Device.Gpio" Version="1.1.0" />
+  </ItemGroup>
+
 </Project>

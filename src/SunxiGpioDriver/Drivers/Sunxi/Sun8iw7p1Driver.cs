@@ -5,11 +5,14 @@
 namespace Iot.Device.Gpio.Drivers
 {
     /// <summary>
-    /// A GPIO driver for Allwinner H6.
+    /// A GPIO driver for Allwinner H2+/H3.
     /// </summary>
-    public class Sun50iw6p1Driver : SunxiDriver
+    public class Sun8iw7p1Driver : SunxiDriver
     {
-        protected override int CpuxPortBaseAddess => 0x0300B000;
-        protected override int CpusPortBaseAddess => 0x07022000;
+        /// <inheritdoc/>
+        protected override int CpuxPortBaseAddress => 0x01C20800;
+
+        /// <inheritdoc/>
+        protected override int CpusPortBaseAddress => 0x01F02C00;
     }
 }

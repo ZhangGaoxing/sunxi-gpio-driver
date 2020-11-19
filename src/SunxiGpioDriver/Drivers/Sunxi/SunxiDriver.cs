@@ -21,58 +21,64 @@ namespace Iot.Device.Gpio.Drivers
     /// It can even drive the internal pins that are not drawn out.
     /// Before you operate, you must be clear about what you are doing.
     /// </remarks>
-    public unsafe partial class SunxiDriver : GpioDriver
+    public unsafe class SunxiDriver : SysFsDriver
     {
+        private const string GpioMemoryFilePath = "/dev/mem";
+        private readonly IDictionary<int, PinState> _pinModes = new Dictionary<int, PinState>();
+
         private IntPtr _gpioPointer0;
         private IntPtr _gpioPointer1;
 
         /// <summary>
-        /// CPUX-PORT base address. 
+        /// CPUX-PORT base address.
         /// </summary>
-        protected virtual int CpuxPortBaseAddess { get; }
+        protected virtual int CpuxPortBaseAddress { get; }
+
         /// <summary>
         /// CPUS-PORT base address.
         /// </summary>
-        protected virtual int CpusPortBaseAddess { get; }
+        protected virtual int CpusPortBaseAddress { get; }
+
         // final_address = mapped_address + (target_address & map_mask) https://stackoverflow.com/a/37922968
         private readonly int _mapMask = Environment.SystemPageSize - 1;
-
         private static readonly object s_initializationLock = new object();
         private static readonly object s_sysFsInitializationLock = new object();
-        private const string GpioMemoryFilePath = "/dev/mem";
-        private UnixDriver _interruptDriver;
-        private readonly IDictionary<int, PinState> _pinModes = new Dictionary<int, PinState>();
 
-        protected SunxiDriver() { }
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SunxiDriver"/> class.
+        /// </summary>
+        protected SunxiDriver()
+        {
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SunxiDriver"/>.
         /// </summary>
-        /// <param name="cpuxPortBaseAddess">CPUX-PORT base address (This can be find in the corresponding SoC datasheet).</param>
-        /// <param name="cpusPortBaseAddess">CPUS-PORT base address (This can be find in the corresponding SoC datasheet).</param>
-        public SunxiDriver(int cpuxPortBaseAddess, int cpusPortBaseAddess)
+        /// <param name="cpuxPortBaseAddress">CPUX-PORT base address (This can be find in the corresponding SoC datasheet).</param>
+        /// <param name="cpusPortBaseAddress">CPUS-PORT base address (This can be find in the corresponding SoC datasheet).</param>
+        public SunxiDriver(int cpuxPortBaseAddress, int cpusPortBaseAddress)
         {
-            CpuxPortBaseAddess = cpuxPortBaseAddess;
-            CpusPortBaseAddess = cpusPortBaseAddess;
+            CpuxPortBaseAddress = cpuxPortBaseAddress;
+            CpusPortBaseAddress = cpusPortBaseAddress;
         }
 
         /// <summary>
         /// The number of pins provided by the driver.
         /// </summary>
-        protected internal override int PinCount => throw new PlatformNotSupportedException("This driver is generic so it can not enumerate how many pins are available.");
+        protected override int PinCount => throw new PlatformNotSupportedException("This driver is generic so it can not enumerate how many pins are available.");
 
         /// <summary>
         /// Converts a board pin number to the driver's logical numbering scheme.
         /// </summary>
         /// <param name="pinNumber">The board pin number to convert.</param>
         /// <returns>The pin number in the driver's logical numbering scheme.</returns>
-        protected internal override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber) => throw new PlatformNotSupportedException("This driver is generic so it can not perform conversions between pin numbering schemes.");
+        protected override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber) => throw new PlatformNotSupportedException("This driver is generic so it can not perform conversions between pin numbering schemes.");
 
         /// <summary>
         /// Opens a pin in order for it to be ready to use.
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
-        protected internal override void OpenPin(int pinNumber)
+        protected override void OpenPin(int pinNumber)
         {
             Initialize();
             SetPinMode(pinNumber, PinMode.Input);
@@ -82,13 +88,13 @@ namespace Iot.Device.Gpio.Drivers
         /// Closes an open pin.
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
-        protected internal override void ClosePin(int pinNumber)
+        protected override void ClosePin(int pinNumber)
         {
             if (_pinModes.ContainsKey(pinNumber))
             {
                 if (_pinModes[pinNumber].InUseByInterruptDriver)
                 {
-                    _interruptDriver.ClosePin(pinNumber);
+                    base.ClosePin(pinNumber);
                 }
 
                 if (_pinModes[pinNumber].CurrentPinMode == PinMode.Output)
@@ -96,7 +102,7 @@ namespace Iot.Device.Gpio.Drivers
                     Write(pinNumber, PinValue.Low);
                     SetPinMode(pinNumber, PinMode.Input);
                 }
-                
+
                 _pinModes.Remove(pinNumber);
             }
         }
@@ -106,7 +112,7 @@ namespace Iot.Device.Gpio.Drivers
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <param name="mode">The mode to be set.</param>
-        protected internal override void SetPinMode(int pinNumber, PinMode mode)
+        protected override void SetPinMode(int pinNumber, PinMode mode)
         {
             if (!IsPinModeSupported(pinNumber, mode))
             {
@@ -114,7 +120,7 @@ namespace Iot.Device.Gpio.Drivers
             }
 
             // Get port controller, port number and shift
-            var unmapped = UnmapPinNumber(pinNumber);
+            (int PortController, int Port) unmapped = UnmapPinNumber(pinNumber);
             int cfgNum = unmapped.Port / 8;
             int cfgShift = unmapped.Port % 8;
             int pulNum = unmapped.Port / 16;
@@ -123,19 +129,17 @@ namespace Iot.Device.Gpio.Drivers
             // Get register address, register pointer
             int cfgAddress, pulAddress;
             uint* cfgPointer, pulPointer;
+
+            cfgAddress = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + cfgNum * 0x04) & _mapMask;
+            pulAddress = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04) & _mapMask;
+
             if (unmapped.PortController < 10)
             {
-                cfgAddress = (CpuxPortBaseAddess + unmapped.PortController * 0x24 + cfgNum * 0x04) & _mapMask;
-                pulAddress = (CpuxPortBaseAddess + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04) & _mapMask;
-
                 cfgPointer = (uint*)(_gpioPointer0 + cfgAddress);
                 pulPointer = (uint*)(_gpioPointer0 + pulAddress);
             }
             else
             {
-                cfgAddress = (CpusPortBaseAddess + unmapped.PortController * 0x24 + cfgNum * 0x04) & _mapMask;
-                pulAddress = (CpusPortBaseAddess + unmapped.PortController * 0x24 + (pulNum + 7) * 0x04) & _mapMask;
-
                 cfgPointer = (uint*)(_gpioPointer1 + cfgAddress);
                 pulPointer = (uint*)(_gpioPointer1 + pulAddress);
             }
@@ -184,22 +188,21 @@ namespace Iot.Device.Gpio.Drivers
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <param name="value">The value to be written to the pin.</param>
-        protected internal override void Write(int pinNumber, PinValue value)
+        protected override void Write(int pinNumber, PinValue value)
         {
-            var unmapped = UnmapPinNumber(pinNumber);
+            (int PortController, int Port) unmapped = UnmapPinNumber(pinNumber);
 
             int dataAddress;
             uint* dataPointer;
+
+            dataAddress = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + 0x10) & _mapMask;
+
             if (unmapped.PortController < 10)
             {
-                dataAddress = (CpuxPortBaseAddess + unmapped.PortController * 0x24 + 0x10) & _mapMask;
-
                 dataPointer = (uint*)(_gpioPointer0 + dataAddress);
             }
             else
             {
-                dataAddress = (CpusPortBaseAddess + unmapped.PortController * 0x24 + 0x10) & _mapMask;
-
                 dataPointer = (uint*)(_gpioPointer1 + dataAddress);
             }
 
@@ -222,22 +225,21 @@ namespace Iot.Device.Gpio.Drivers
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <returns>The value of the pin.</returns>
-        protected internal unsafe override PinValue Read(int pinNumber)
+        protected unsafe override PinValue Read(int pinNumber)
         {
-            var unmapped = UnmapPinNumber(pinNumber);
+            (int PortController, int Port) unmapped = UnmapPinNumber(pinNumber);
 
             int dataAddress;
             uint* dataPointer;
+
+            dataAddress = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + 0x10) & _mapMask;
+
             if (unmapped.PortController < 10)
             {
-                dataAddress = (CpuxPortBaseAddess + unmapped.PortController * 0x24 + 0x10) & _mapMask;
-
                 dataPointer = (uint*)(_gpioPointer0 + dataAddress);
             }
             else
             {
-                dataAddress = (CpusPortBaseAddess + unmapped.PortController * 0x24 + 0x10) & _mapMask;
-
                 dataPointer = (uint*)(_gpioPointer1 + dataAddress);
             }
 
@@ -252,12 +254,12 @@ namespace Iot.Device.Gpio.Drivers
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <param name="eventTypes">The event types to wait for.</param>
         /// <param name="callback">Delegate that defines the structure for callbacks when a pin value changed event occurs.</param>
-        protected internal override void AddCallbackForPinValueChangedEvent(int pinNumber, PinEventTypes eventTypes, PinChangeEventHandler callback)
+        protected override void AddCallbackForPinValueChangedEvent(int pinNumber, PinEventTypes eventTypes, PinChangeEventHandler callback)
         {
-            _interruptDriver.OpenPin(pinNumber);
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            _interruptDriver.AddCallbackForPinValueChangedEvent(pinNumber, eventTypes, callback);
+            base.OpenPin(pinNumber);
+            base.AddCallbackForPinValueChangedEvent(pinNumber, eventTypes, callback);
         }
 
         /// <summary>
@@ -265,12 +267,12 @@ namespace Iot.Device.Gpio.Drivers
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <param name="callback">Delegate that defines the structure for callbacks when a pin value changed event occurs.</param>
-        protected internal override void RemoveCallbackForPinValueChangedEvent(int pinNumber, PinChangeEventHandler callback)
+        protected override void RemoveCallbackForPinValueChangedEvent(int pinNumber, PinChangeEventHandler callback)
         {
-            _interruptDriver.OpenPin(pinNumber);
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            _interruptDriver.RemoveCallbackForPinValueChangedEvent(pinNumber, callback);
+            base.OpenPin(pinNumber);
+            base.RemoveCallbackForPinValueChangedEvent(pinNumber, callback);
         }
 
         /// <summary>
@@ -280,12 +282,12 @@ namespace Iot.Device.Gpio.Drivers
         /// <param name="eventTypes">The event types to wait for.</param>
         /// <param name="cancellationToken">The cancellation token of when the operation should stop waiting for an event.</param>
         /// <returns>A structure that contains the result of the waiting operation.</returns>
-        protected internal override WaitForEventResult WaitForEvent(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
+        protected override WaitForEventResult WaitForEvent(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
-            _interruptDriver.OpenPin(pinNumber);
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            return _interruptDriver.WaitForEvent(pinNumber, eventTypes, cancellationToken);
+            base.OpenPin(pinNumber);
+            return base.WaitForEvent(pinNumber, eventTypes, cancellationToken);
         }
 
         /// <summary>
@@ -295,12 +297,12 @@ namespace Iot.Device.Gpio.Drivers
         /// <param name="eventTypes">The event types to wait for.</param>
         /// <param name="cancellationToken">The cancellation token of when the operation should stop waiting for an event.</param>
         /// <returns>A task representing the operation of getting the structure that contains the result of the waiting operation</returns>
-        protected internal override ValueTask<WaitForEventResult> WaitForEventAsync(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
+        protected override ValueTask<WaitForEventResult> WaitForEventAsync(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
-            _interruptDriver.OpenPin(pinNumber);
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            return _interruptDriver.WaitForEventAsync(pinNumber, eventTypes, cancellationToken);
+            base.OpenPin(pinNumber);
+            return base.WaitForEventAsync(pinNumber, eventTypes, cancellationToken);
         }
 
         /// <summary>
@@ -309,7 +311,7 @@ namespace Iot.Device.Gpio.Drivers
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <param name="mode">The mode to check.</param>
         /// <returns>The status if the pin supports the mode.</returns>
-        protected internal override bool IsPinModeSupported(int pinNumber, PinMode mode)
+        protected override bool IsPinModeSupported(int pinNumber, PinMode mode)
         {
             switch (mode)
             {
@@ -328,7 +330,7 @@ namespace Iot.Device.Gpio.Drivers
         /// </summary>
         /// <param name="pinNumber">The pin number in the driver's logical numbering scheme.</param>
         /// <returns>The mode of the pin.</returns>
-        protected internal override PinMode GetPinMode(int pinNumber)
+        protected override PinMode GetPinMode(int pinNumber)
         {
             if (!_pinModes.ContainsKey(pinNumber))
             {
@@ -338,49 +340,34 @@ namespace Iot.Device.Gpio.Drivers
             return _pinModes[pinNumber].CurrentPinMode;
         }
 
+        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
-            if (_gpioPointer0 != default)
+            if (_gpioPointer0 != IntPtr.Zero)
             {
                 Interop.munmap(_gpioPointer0, 0);
-                _gpioPointer0 = default;
+                _gpioPointer0 = IntPtr.Zero;
             }
 
-            if (_gpioPointer1 != default)
+            if (_gpioPointer1 != IntPtr.Zero)
             {
                 Interop.munmap(_gpioPointer1, 0);
-                _gpioPointer1 = default;
+                _gpioPointer1 = IntPtr.Zero;
             }
 
-            if (_interruptDriver != default)
-            {
-                _interruptDriver.Dispose();
-                _interruptDriver = default;
-            }
-        }
-
-        private void InitializeInterruptDriver()
-        {
-            try
-            {
-                _interruptDriver = new LibGpiodDriver(0);
-            }
-            catch (PlatformNotSupportedException)
-            {
-                _interruptDriver = new InterruptSysFsDriver(this);
-            }
+            Dispose();
         }
 
         private void Initialize()
         {
-            if (_gpioPointer0 != default)
+            if (_gpioPointer0 != IntPtr.Zero)
             {
                 return;
             }
 
             lock (s_initializationLock)
             {
-                if (_gpioPointer0 != default)
+                if (_gpioPointer0 != IntPtr.Zero)
                 {
                     return;
                 }
@@ -391,10 +378,20 @@ namespace Iot.Device.Gpio.Drivers
                     throw new IOException($"Error {Marshal.GetLastWin32Error()} initializing the Gpio driver.");
                 }
 
-                IntPtr mapPointer0 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize - 1, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, CpuxPortBaseAddess & ~_mapMask);
-                IntPtr mapPointer1 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize - 1, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, CpusPortBaseAddess & ~_mapMask);
+                IntPtr mapPointer0 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize - 1, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, CpuxPortBaseAddress & ~_mapMask);
+                IntPtr mapPointer1 = Interop.mmap(IntPtr.Zero, Environment.SystemPageSize - 1, (MemoryMappedProtections.PROT_READ | MemoryMappedProtections.PROT_WRITE), MemoryMappedFlags.MAP_SHARED, fileDescriptor, CpusPortBaseAddress & ~_mapMask);
                 if (mapPointer0.ToInt64() == -1 || mapPointer1.ToInt64() == -1)
                 {
+                    if (mapPointer0.ToInt64() != -1)
+                    {
+                        Interop.munmap(mapPointer0, 0);
+                    }
+
+                    if (mapPointer1.ToInt64() != -1)
+                    {
+                        Interop.munmap(mapPointer1, 0);
+                    }
+
                     throw new IOException($"Error {Marshal.GetLastWin32Error()} initializing the Gpio driver.");
                 }
 
@@ -402,8 +399,6 @@ namespace Iot.Device.Gpio.Drivers
 
                 _gpioPointer0 = mapPointer0;
                 _gpioPointer1 = mapPointer0;
-
-                InitializeInterruptDriver();
             }
         }
 
@@ -430,23 +425,7 @@ namespace Iot.Device.Gpio.Drivers
 
         private static int MapPortController(char portController)
         {
-            return portController switch
-            {
-                'A' => 0,
-                'B' => 1,
-                'C' => 2,
-                'D' => 3,
-                'E' => 4,
-                'F' => 5,
-                'G' => 6,
-                'H' => 7,
-                'I' => 8,
-                'J' => 9,
-                'K' => 10,
-                'L' => 11,
-                'M' => 12,
-                _ => throw new Exception()
-            };
+            return (portController >= 'A' && portController <= 'M') ? portController - 'A' : throw new Exception();
         }
 
         private class PinState
@@ -457,17 +436,9 @@ namespace Iot.Device.Gpio.Drivers
                 InUseByInterruptDriver = false;
             }
 
-            public PinMode CurrentPinMode
-            {
-                get;
-                set;
-            }
+            public PinMode CurrentPinMode { get; set; }
 
-            public bool InUseByInterruptDriver
-            {
-                get;
-                set;
-            }
+            public bool InUseByInterruptDriver { get; set; }
         }
     }
 }

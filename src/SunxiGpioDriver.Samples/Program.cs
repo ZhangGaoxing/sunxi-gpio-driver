@@ -1,27 +1,40 @@
-﻿using System;
-using Iot.Device.Gpio.Drivers;
+﻿// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
+using System;
 using System.Device.Gpio;
-using System.Threading;
+using Iot.Device.BoardLed;
+using Iot.Device.Gpio.Drivers;
 
-namespace AllwinnerGpioDriver.Samples
+namespace Sunxi.Gpio.Samples
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            int pinNum = 7;
-            using GpioController gpio = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
+            var pin = 7;
 
-            gpio.OpenPin(pinNum);
-            gpio.SetPinMode(pinNum, PinMode.Output);
+            Console.WriteLine($"Let's blink an on-board LED!");
 
-            for (int i = 0; i < 10; i++)
+            using GpioController controller = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
+            using BoardLed led = new BoardLed("orangepi:red:status");
+
+            controller.OpenPin(pin, PinMode.InputPullUp);
+            led.Trigger = "none";
+            Console.WriteLine($"GPIO pin enabled for use: {pin}");
+
+            controller.RegisterCallbackForPinValueChangedEvent(7, PinEventTypes.Falling, (sender, args) =>
             {
-                gpio.Write(pinNum, PinValue.High);
-                Thread.Sleep(500);
-                gpio.Write(pinNum, PinValue.Low);
-                Thread.Sleep(500);
-            }
+                Console.WriteLine("Button is pressed.");
+                led.Brightness = 1;
+            });
+            controller.RegisterCallbackForPinValueChangedEvent(7, PinEventTypes.Rising, (sender, args) =>
+            {
+                Console.WriteLine("Button is unpressed.");
+                led.Brightness = 0;
+            });
+
+            Console.ReadLine();
         }
     }
 }
