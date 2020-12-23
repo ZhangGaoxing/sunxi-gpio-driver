@@ -281,9 +281,13 @@ namespace Iot.Device.Gpio.Drivers
         /// <param name="callback">Delegate that defines the structure for callbacks when a pin value changed event occurs.</param>
         protected override void AddCallbackForPinValueChangedEvent(int pinNumber, PinEventTypes eventTypes, PinChangeEventHandler callback)
         {
+            if (!_pinModes.ContainsKey(pinNumber))
+            {
+                throw new InvalidOperationException("Can not add a handler to a pin that is not open.");
+            }
+
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            base.OpenPin(pinNumber);
             base.AddCallbackForPinValueChangedEvent(pinNumber, eventTypes, callback);
         }
 
@@ -294,9 +298,13 @@ namespace Iot.Device.Gpio.Drivers
         /// <param name="callback">Delegate that defines the structure for callbacks when a pin value changed event occurs.</param>
         protected override void RemoveCallbackForPinValueChangedEvent(int pinNumber, PinChangeEventHandler callback)
         {
+            if (!_pinModes.ContainsKey(pinNumber))
+            {
+                throw new InvalidOperationException("Can not add a handler to a pin that is not open.");
+            }
+
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            base.OpenPin(pinNumber);
             base.RemoveCallbackForPinValueChangedEvent(pinNumber, callback);
         }
 
@@ -309,9 +317,13 @@ namespace Iot.Device.Gpio.Drivers
         /// <returns>A structure that contains the result of the waiting operation.</returns>
         protected override WaitForEventResult WaitForEvent(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
+            if (!_pinModes.ContainsKey(pinNumber))
+            {
+                throw new InvalidOperationException("Can not add a block execution to a pin that is not open.");
+            }
+
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            base.OpenPin(pinNumber);
             return base.WaitForEvent(pinNumber, eventTypes, cancellationToken);
         }
 
@@ -324,9 +336,13 @@ namespace Iot.Device.Gpio.Drivers
         /// <returns>A task representing the operation of getting the structure that contains the result of the waiting operation</returns>
         protected override ValueTask<WaitForEventResult> WaitForEventAsync(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
+            if (!_pinModes.ContainsKey(pinNumber))
+            {
+                throw new InvalidOperationException("Can not async call to a pin that is not open.");
+            }
+
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
-            base.OpenPin(pinNumber);
             return base.WaitForEventAsync(pinNumber, eventTypes, cancellationToken);
         }
 
@@ -338,16 +354,11 @@ namespace Iot.Device.Gpio.Drivers
         /// <returns>The status if the pin supports the mode.</returns>
         protected override bool IsPinModeSupported(int pinNumber, PinMode mode)
         {
-            switch (mode)
+            return mode switch
             {
-                case PinMode.Input:
-                case PinMode.InputPullDown:
-                case PinMode.InputPullUp:
-                case PinMode.Output:
-                    return true;
-                default:
-                    return false;
-            }
+                PinMode.Input or PinMode.InputPullDown or PinMode.InputPullUp or PinMode.Output => true,
+                _ => false,
+            };
         }
 
         /// <summary>
