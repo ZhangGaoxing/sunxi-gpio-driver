@@ -26,8 +26,8 @@ namespace Iot.Device.Gpio.Drivers
         private const string GpioMemoryFilePath = "/dev/mem";
         private readonly IDictionary<int, PinState> _pinModes = new Dictionary<int, PinState>();
 
-        private IntPtr _gpioPointer0;
-        private IntPtr _gpioPointer1;
+        private IntPtr _gpioPointer0 = IntPtr.Zero;
+        private IntPtr _gpioPointer1 = IntPtr.Zero;
 
         /// <summary>
         /// CPUX-PORT base address.
@@ -49,6 +49,7 @@ namespace Iot.Device.Gpio.Drivers
         /// </summary>
         protected SunxiDriver()
         {
+            Initialize();
         }
 
         /// <summary>
@@ -98,10 +99,18 @@ namespace Iot.Device.Gpio.Drivers
                     base.ClosePin(pinNumber);
                 }
 
-                if (_pinModes[pinNumber].CurrentPinMode == PinMode.Output)
+                switch (_pinModes[pinNumber].CurrentPinMode)
                 {
-                    Write(pinNumber, PinValue.Low);
-                    SetPinMode(pinNumber, PinMode.Input);
+                    case PinMode.InputPullDown:
+                    case PinMode.InputPullUp:
+                        SetPinMode(pinNumber, PinMode.Input);
+                        break;
+                    case PinMode.Output:
+                        Write(pinNumber, PinValue.Low);
+                        SetPinMode(pinNumber, PinMode.Input);
+                        break;
+                    default:
+                        break;
                 }
 
                 _pinModes.Remove(pinNumber);
@@ -285,9 +294,17 @@ namespace Iot.Device.Gpio.Drivers
             {
                 throw new InvalidOperationException("Can not add a handler to a pin that is not open.");
             }
+            else
+            {
+                if (_pinModes[pinNumber].CurrentPinMode == PinMode.Output)
+                {
+                    throw new InvalidOperationException("Can not add a handler to a pin that is output mode.");
+                }
+            }
 
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
+            base.OpenPin(pinNumber);
             base.AddCallbackForPinValueChangedEvent(pinNumber, eventTypes, callback);
         }
 
@@ -303,8 +320,9 @@ namespace Iot.Device.Gpio.Drivers
                 throw new InvalidOperationException("Can not add a handler to a pin that is not open.");
             }
 
-            _pinModes[pinNumber].InUseByInterruptDriver = true;
+            _pinModes[pinNumber].InUseByInterruptDriver = false;
 
+            base.OpenPin(pinNumber);
             base.RemoveCallbackForPinValueChangedEvent(pinNumber, callback);
         }
 
@@ -324,6 +342,7 @@ namespace Iot.Device.Gpio.Drivers
 
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
+            base.OpenPin(pinNumber);
             return base.WaitForEvent(pinNumber, eventTypes, cancellationToken);
         }
 
@@ -343,6 +362,7 @@ namespace Iot.Device.Gpio.Drivers
 
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
+            base.OpenPin(pinNumber);
             return base.WaitForEventAsync(pinNumber, eventTypes, cancellationToken);
         }
 
@@ -390,8 +410,6 @@ namespace Iot.Device.Gpio.Drivers
                 Interop.munmap(_gpioPointer1, 0);
                 _gpioPointer1 = IntPtr.Zero;
             }
-
-            Dispose();
         }
 
         private void Initialize()
