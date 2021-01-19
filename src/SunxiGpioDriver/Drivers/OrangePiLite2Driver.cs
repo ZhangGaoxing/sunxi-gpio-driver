@@ -22,16 +22,10 @@ namespace Iot.Device.Gpio.Drivers
             MapPinNumber('C', 0), MapPinNumber('C', 5), -1, MapPinNumber('H', 3)
         };
 
-        /// <summary>
-        /// Orange Pi Lite 2 has 17 GPIO pins.
-        /// </summary>
+        /// <inheritdoc/>
         protected override int PinCount => _pinNumberConverter.Count(n => n != -1);
 
-        /// <summary>
-        /// Converts a board pin number to the driver's logical numbering scheme.
-        /// </summary>
-        /// <param name="pinNumber">The board pin number to convert.</param>
-        /// <returns>The pin number in the driver's logical numbering scheme.</returns>
+        /// <inheritdoc/>
         protected override int ConvertPinNumberToLogicalNumberingScheme(int pinNumber)
         {
             int num = _pinNumberConverter[pinNumber];
