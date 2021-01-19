@@ -114,21 +114,24 @@ namespace Iot.Device.Gpio.Drivers
             int pulShift = unmapped.Port % 16;
 
             // Pn_CFG is used to set the direction; Pn_PUL is used to set the pull up/dowm mode
-            int cfgOffset, pulOffset;
-            // Pn_CFG initial offset is 0x00
-            cfgOffset = unmapped.PortController * 0x24 + cfgNum * 0x04;
-            // Pn_PUL initial offset is 0x1C
-            pulOffset = unmapped.PortController * 0x24 + 0x1C + pulNum * 0x04;
-
             uint* cfgPointer, pulPointer;
+            int cfgOffset, pulOffset;
 
             if (unmapped.PortController < 10)
             {
+                // Pn_CFG initial offset is 0x00
+                cfgOffset = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + cfgNum * 0x04) & _mapMask;
+                // Pn_PUL initial offset is 0x1C
+                pulOffset = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + 0x1C + pulNum * 0x04) & _mapMask;
+
                 cfgPointer = (uint*)(_cpuxPointer + cfgOffset);
                 pulPointer = (uint*)(_cpuxPointer + pulOffset);
             }
             else
             {
+                cfgOffset = (CpusPortBaseAddress + unmapped.PortController * 0x24 + cfgNum * 0x04) & _mapMask;
+                pulOffset = (CpusPortBaseAddress + unmapped.PortController * 0x24 + 0x1C + pulNum * 0x04) & _mapMask;
+
                 cfgPointer = (uint*)(_cpusPointer + cfgOffset);
                 pulPointer = (uint*)(_cpusPointer + pulOffset);
             }
@@ -177,30 +180,20 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected override void Write(int pinNumber, PinValue value)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not write a value to a pin that is not open.");
-            }
-            else
-            {
-                if (_pinModes[pinNumber].CurrentPinMode != PinMode.Output)
-                {
-                    throw new InvalidOperationException("Can not write a value to a pin that is not output mode.");
-                }
-            }
-
             (int PortController, int Port) unmapped = UnmapPinNumber(pinNumber);
 
             uint* dataPointer;
-            // Pn_DAT offset is 0x10
-            int dataOffset = unmapped.PortController * 0x24 + 0x10;
+            int dataOffset;
 
             if (unmapped.PortController < 10)
             {
+                // Pn_DAT offset is 0x10
+                dataOffset = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + 0x10) & _mapMask;
                 dataPointer = (uint*)(_cpuxPointer + dataOffset);
             }
             else
             {
+                dataOffset = (CpusPortBaseAddress + unmapped.PortController * 0x24 + 0x10) & _mapMask;
                 dataPointer = (uint*)(_cpusPointer + dataOffset);
             }
 
@@ -221,30 +214,20 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected unsafe override PinValue Read(int pinNumber)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not read a value from a pin that is not open.");
-            }
-            else
-            {
-                if (_pinModes[pinNumber].CurrentPinMode == PinMode.Output)
-                {
-                    throw new InvalidOperationException("Can not read a value from a pin that is output mode.");
-                }
-            }
-
             (int PortController, int Port) unmapped = UnmapPinNumber(pinNumber);
 
             uint* dataPointer;
-            // Pn_DAT offset is 0x10
-            int dataOffset = unmapped.PortController * 0x24 + 0x10;
+            int dataOffset;
 
             if (unmapped.PortController < 10)
             {
+                // Pn_DAT offset is 0x10
+                dataOffset = (CpuxPortBaseAddress + unmapped.PortController * 0x24 + 0x10) & _mapMask;
                 dataPointer = (uint*)(_cpuxPointer + dataOffset);
             }
             else
             {
+                dataOffset = (CpusPortBaseAddress + unmapped.PortController * 0x24 + 0x10) & _mapMask;
                 dataPointer = (uint*)(_cpusPointer + dataOffset);
             }
 
@@ -256,18 +239,6 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected override void AddCallbackForPinValueChangedEvent(int pinNumber, PinEventTypes eventTypes, PinChangeEventHandler callback)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not add a handler to a pin that is not open.");
-            }
-            else
-            {
-                if (_pinModes[pinNumber].CurrentPinMode == PinMode.Output)
-                {
-                    throw new InvalidOperationException("Can not add a handler to a pin that is output mode.");
-                }
-            }
-
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
             base.OpenPin(pinNumber);
@@ -277,11 +248,6 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected override void RemoveCallbackForPinValueChangedEvent(int pinNumber, PinChangeEventHandler callback)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not add a handler to a pin that is not open.");
-            }
-
             _pinModes[pinNumber].InUseByInterruptDriver = false;
 
             base.OpenPin(pinNumber);
@@ -291,11 +257,6 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected override WaitForEventResult WaitForEvent(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not add a block execution to a pin that is not open.");
-            }
-
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
             base.OpenPin(pinNumber);
@@ -305,11 +266,6 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected override ValueTask<WaitForEventResult> WaitForEventAsync(int pinNumber, PinEventTypes eventTypes, CancellationToken cancellationToken)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not async call to a pin that is not open.");
-            }
-
             _pinModes[pinNumber].InUseByInterruptDriver = true;
 
             base.OpenPin(pinNumber);
@@ -329,11 +285,6 @@ namespace Iot.Device.Gpio.Drivers
         /// <inheritdoc/>
         protected override PinMode GetPinMode(int pinNumber)
         {
-            if (!_pinModes.ContainsKey(pinNumber))
-            {
-                throw new InvalidOperationException("Can not get a pin mode of a pin that is not open.");
-            }
-
             return _pinModes[pinNumber].CurrentPinMode;
         }
 
