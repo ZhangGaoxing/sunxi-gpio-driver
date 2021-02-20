@@ -33,6 +33,16 @@ gpio.SetPinMode(pinNumber, PinMode.Output);
 gpio.Write(pinNumber, PinValue.High);
 ```
 
+## Benchmark
+
+Benchmarking with Orange Pi Zero. The operating system is Armbian, Linux kernel version is 5.10.16, and .NET version is 5.0.3. The test uses different GPIO drivers to quickly switch the state of GPIO 6 (Logical), and uses an oscilloscope to measure the average frequency of GPIO externally.
+
+| Drivers | Library Version | Average Frequency |  |
+| :-: | :-: | :-: | :- |
+| SunxiDrivers | - | 185 KHz | <img src="imgs/sunxi.jpg" height="100"/> |
+| SysFsDrivers | System.Device.Gpio 1.3.0 | 692 Hz | <img src="imgs/sysfs.jpg" height="100"/> |
+| LibGpiodDrivers | System.Device.Gpio 1.3.0 <br/> libgpiod 1.2-3 | 81 KHz | <img src="imgs/libgpiod.jpg" height="100"/> |
+
 ## Adding new drivers
 
 ### For SoCs
@@ -89,7 +99,7 @@ The wiki of the linux-sunxi community: https://linux-sunxi.org/Main_Page
 
 ### Circuit
 
-![](opi_circuit.png)
+![](imgs/opi_circuit.png)
 
 * Switch 1 - Board Pin7 (GPIO 6)
 * Switch 2 - GND
