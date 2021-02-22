@@ -35,13 +35,14 @@ gpio.Write(pinNumber, PinValue.High);
 
 ## Benchmark
 
-Benchmarking with Orange Pi Zero. The operating system is Armbian, Linux kernel version is 5.10.16, and .NET version is 5.0.3. The test uses different GPIO drivers to quickly switch the state of GPIO 6 (Logical), and uses an oscilloscope to measure the average frequency of GPIO externally.
+Benchmarking with Orange Pi Zero. The operating system is Armbian buster, Linux kernel version is 5.10.16, and .NET version is 5.0.3. The test uses different GPIO drivers to quickly switch the state of GPIO 6 (Logical), and uses an oscilloscope to measure the average frequency of GPIO externally.
 
-| Drivers | Library Version | Average Frequency |  |
-| :-: | :-: | :-: | :- |
-| SunxiDrivers | - | 185 KHz | <img src="imgs/sunxi.jpg" height="100"/> |
-| SysFsDrivers | System.Device.Gpio 1.3.0 | 692 Hz | <img src="imgs/sysfs.jpg" height="100"/> |
-| LibGpiodDrivers | System.Device.Gpio 1.3.0 <br/> libgpiod 1.2-3 | 81 KHz | <img src="imgs/libgpiod.jpg" height="100"/> |
+| Drivers| Language | Library Version | Average Frequency |  |
+| :-: | :-: | :-: | :-: | :-: |
+| SunxiDriver | C# | - | 185 KHz | <img src="imgs/sunxi.jpg" height="120"/> |
+| SysFsDriver | C# | System.Device.Gpio 1.3.0 | 692 Hz | <img src="imgs/sysfs.jpg" height="120"/> |
+| LibGpiodDriver | C# | System.Device.Gpio 1.3.0 <br/> libgpiod 1.2-3 | 81 KHz | <img src="imgs/libgpiod.jpg" height="120"/> |
+| [wiringOP](https://github.com/orangepi-xunlong/wiringOP) | C | 35de015 | 1.10 MHz | <img src="imgs/wiringOP.jpg" height="120"/> |
 
 ## Adding new drivers
 
