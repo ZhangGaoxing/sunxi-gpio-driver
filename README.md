@@ -2,6 +2,8 @@
 
 **sunxi** represents the family of ARM SoCs from Allwinner Technology. This project contains a **full function(PULL-UP, PULL-DOWN)** generic GPIO driver `SunxiDriver` for Allwinner SoCs and some special GPIO drivers like `OrangePiZeroDriver`, `OrangePiLite2Driver`.
 
+[dotnet/iot#1130](https://github.com/dotnet/iot/pull/1130)
+
 ## Getting started
 
 ### Special GPIO driver: `OrangePiZeroDriver`
