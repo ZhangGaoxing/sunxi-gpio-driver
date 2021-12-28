@@ -12,60 +12,87 @@ namespace Sunxi.Gpio.Samples
     {
         private static void Main(string[] args)
         {
-            // Set debounce delay to 5ms
-            int debounceDelay = 50000;
-            int pin = 7;
+            using GpioController controller = new GpioController(PinNumberingScheme.Board, new OrangePiZero2Driver());
 
-            Console.WriteLine($"Let's blink an on-board LED!");
-
-            using GpioController controller = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
-            using BoardLed led = new BoardLed("orangepi:red:status");
-
-            controller.OpenPin(pin, PinMode.InputPullUp);
-            led.Trigger = "none";
-            Console.WriteLine($"GPIO pin enabled for use: {pin}.");
-            Console.WriteLine("Press any key to exit.");
-
-            while (!Console.KeyAvailable)
+            for (int i = 0; i < OrangePiZero2Driver._pinNumberConverter.Length; i++)
             {
-                if (Debounce())
+                if (OrangePiZero2Driver._pinNumberConverter[i] != -1)
                 {
-                    // Button is pressed
-                    led.Brightness = 1;
-                }
-                else
-                {
-                    // Button is unpressed
-                    led.Brightness = 0;
+                    Console.WriteLine($"GPIO pin enabled for use: {i}.");
+
+                    controller.OpenPin(i);
+
+                    controller.SetPinMode(i, PinMode.Input);
+                    Console.WriteLine(controller.Read(i));
+                    controller.SetPinMode(i, PinMode.InputPullUp);
+                    Console.WriteLine(controller.Read(i));
+                    controller.SetPinMode(i, PinMode.InputPullDown);
+                    Console.WriteLine(controller.Read(i));
+
+                    controller.SetPinMode(i, PinMode.Output);
+                    controller.Write(i, 0);
+                    Console.WriteLine(controller.Read(i));
+                    controller.Write(i, 1);
+                    Console.WriteLine(controller.Read(i));
+
+                    controller.ClosePin(i);
                 }
             }
 
-            bool Debounce()
-            {
-                long debounceTick = DateTime.Now.Ticks;
-                PinValue buttonState = controller.Read(pin);
+            //// Set debounce delay to 5ms
+            //int debounceDelay = 50000;
+            //int pin = 7;
 
-                do
-                {
-                    PinValue currentState = controller.Read(pin);
+            //Console.WriteLine($"Let's blink an on-board LED!");
 
-                    if (currentState != buttonState)
-                    {
-                        debounceTick = DateTime.Now.Ticks;
-                        buttonState = currentState;
-                    }
-                }
-                while (DateTime.Now.Ticks - debounceTick < debounceDelay);
+            //using GpioController controller = new GpioController(PinNumberingScheme.Board, new OrangePiZeroDriver());
+            //using BoardLed led = new BoardLed("orangepi:red:status");
 
-                if (buttonState == PinValue.Low)
-                {
-                    return true;
-                }
-                else
-                {
-                    return false;
-                }
-            }
+            //controller.OpenPin(pin, PinMode.InputPullUp);
+            //led.Trigger = "none";
+            //Console.WriteLine($"GPIO pin enabled for use: {pin}.");
+            //Console.WriteLine("Press any key to exit.");
+
+            //while (!Console.KeyAvailable)
+            //{
+            //    if (Debounce())
+            //    {
+            //        // Button is pressed
+            //        led.Brightness = 1;
+            //    }
+            //    else
+            //    {
+            //        // Button is unpressed
+            //        led.Brightness = 0;
+            //    }
+            //}
+
+            //bool Debounce()
+            //{
+            //    long debounceTick = DateTime.Now.Ticks;
+            //    PinValue buttonState = controller.Read(pin);
+
+            //    do
+            //    {
+            //        PinValue currentState = controller.Read(pin);
+
+            //        if (currentState != buttonState)
+            //        {
+            //            debounceTick = DateTime.Now.Ticks;
+            //            buttonState = currentState;
+            //        }
+            //    }
+            //    while (DateTime.Now.Ticks - debounceTick < debounceDelay);
+
+            //    if (buttonState == PinValue.Low)
+            //    {
+            //        return true;
+            //    }
+            //    else
+            //    {
+            //        return false;
+            //    }
+            //}
         }
     }
 }
